@@ -20,7 +20,7 @@ func _ready() -> void:
 
 func get_obs() -> Dictionary:
 	if sumo_agent == null:
-		return {"obs": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
+		return {"obs": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
 	return {"obs": sumo_agent.get_obs()}
 
 
@@ -35,6 +35,7 @@ func get_action_space() -> Dictionary:
 		"move": {"size": 1, "action_type": "continuous"},
 		"turn": {"size": 1, "action_type": "continuous"},
 		"charge": {"size": 2, "action_type": "discrete"},  # 0=no charge, 1=charge
+		"swing": {"size": 3, "action_type": "discrete"},   # 0=none, 1=left, 2=right
 	}
 
 
@@ -45,13 +46,15 @@ func set_action(action) -> void:
 	sumo_agent.input_move = clamp(action["move"][0], -1.0, 1.0)
 	sumo_agent.input_turn = clamp(action["turn"][0], -1.0, 1.0)
 	sumo_agent.input_charge = action["charge"] == 1
+	# Swing: 0=none, 1=left, 2=right -> convert to -1, 0, 1
+	sumo_agent.input_swing = action["swing"] - 1
 
 
 func get_action() -> Array:
 	# Used for recording expert demos - return current human input
 	if sumo_agent == null:
-		return [0.0, 0.0, 0]
-	return [sumo_agent.input_move, sumo_agent.input_turn, 1 if sumo_agent.input_charge else 0]
+		return [0.0, 0.0, 0, 0]
+	return [sumo_agent.input_move, sumo_agent.input_turn, 1 if sumo_agent.input_charge else 0, sumo_agent.input_swing + 1]
 
 
 func reset() -> void:

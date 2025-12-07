@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://bplatform001"]
+[gd_scene load_steps=6 format=3 uid="uid://bplatform001"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_001"]
 height = 0.5
@@ -12,6 +12,16 @@ height = 0.5
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_001"]
 albedo_color = Color(0.6, 0.55, 0.45, 1)
 
+[sub_resource type="TorusMesh" id="TorusMesh_edge"]
+inner_radius = 5.85
+outer_radius = 6.15
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_edge"]
+albedo_color = Color(0.8, 0.3, 0.2, 1)
+emission_enabled = true
+emission = Color(0.9, 0.3, 0.2, 1)
+emission_energy_multiplier = 1.5
+
 [node name="Platform" type="StaticBody3D"]
 collision_layer = 1
 collision_mask = 2
@@ -24,3 +34,8 @@ shape = SubResource("CylinderShape3D_001")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
 mesh = SubResource("CylinderMesh_001")
 surface_material_override/0 = SubResource("StandardMaterial3D_001")
+
+[node name="EdgeRing" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0)
+mesh = SubResource("TorusMesh_edge")
+surface_material_override/0 = SubResource("StandardMaterial3D_edge")

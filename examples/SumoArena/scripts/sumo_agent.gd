@@ -31,6 +31,13 @@ const CHARGE_TURN_MULT: float = 0.2  # Reduced turning while charging
 const PUSH_FORCE_MULT: float = 2.0  # Base push multiplier
 const CHARGE_PUSH_MULT: float = 1.5  # Extra push when charging
 
+# Swing attack constants
+const SWING_DURATION: float = 0.2        # Wind-up + active frames
+const SWING_COOLDOWN: float = 2.0        # Longer than charge
+const SWING_PUSH_MULT: float = 5.0       # Much stronger than charge
+const SWING_ARC: float = 120.0           # Degrees - hits in front-left or front-right
+const SWING_RANGE: float = 1.5           # Slightly beyond body collision range
+
 # Agent configuration
 @export var player_id: int = 1
 @export var agent_color: Color = Color(0.3, 0.5, 0.8, 1.0)
@@ -45,6 +52,13 @@ var input_charge: bool = false
 var is_charging: bool = false
 var charge_timer: float = 0.0
 var charge_cooldown: float = 0.0
+
+# Swing attack state
+var is_swinging: bool = false
+var swing_timer: float = 0.0
+var swing_cooldown: float = 0.0
+var swing_direction: int = 0  # -1 = left, 0 = none, 1 = right
+var input_swing: int = 0  # Input from keyboard or AI
 
 # Debug log file
 var log_file: FileAccess = null
@@ -67,6 +81,11 @@ var episode_ended: bool = false
 # Reference to AI controller (set automatically if present)
 var ai_controller: Node = null
 
+# Arm mesh references
+@onready var left_arm: MeshInstance3D = $LeftArm
+@onready var right_arm: MeshInstance3D = $RightArm
+@onready var impact_particles: GPUParticles3D = $ImpactParticles
+
 
 func _ready() -> void:
 	# Check for AI controller child
@@ -87,14 +106,28 @@ func _ready() -> void:
 			log_file.store_line("Log path: %s" % ProjectSettings.globalize_path(log_path))
 			print("Agent %d logging to: %s" % [player_id, ProjectSettings.globalize_path(log_path)])
 
-	# Apply agent color to mesh
+	# Apply agent color to mesh with emissive glow
 	var mesh = $MeshInstance3D
 	if mesh:
 		var material = mesh.get_surface_override_material(0)
 		if material:
 			material = material.duplicate()
 			material.albedo_color = agent_color
+			# Add emissive glow
+			material.emission_enabled = true
+			material.emission = agent_color
+			material.emission_energy_multiplier = 0.3
 			mesh.set_surface_override_material(0, material)
+
+	# Apply darker color to arm meshes
+	if left_arm and right_arm:
+		var arm_material = StandardMaterial3D.new()
+		arm_material.albedo_color = agent_color.darkened(0.2)
+		arm_material.emission_enabled = true
+		arm_material.emission = agent_color.darkened(0.2)
+		arm_material.emission_energy_multiplier = 0.2
+		left_arm.set_surface_override_material(0, arm_material)
+		right_arm.set_surface_override_material(0, arm_material.duplicate())
 
 
 func debug_log(msg: String) -> void:
@@ -117,12 +150,23 @@ func _physics_process(delta: float) -> void:
 	# Apply movement
 	apply_movement(delta)
 
+	# Process swing attack
+	process_swing(delta)
+
+	# Update arm visuals
+	update_arm_visuals()
+
 	# Check for fall
 	check_fall()
 
-	# Step penalty for RL (encourage faster resolution)
-	if not episode_ended:
-		accumulated_reward -= 0.001
+	# Calculate shaping rewards
+	calculate_shaping_rewards()
+
+	# Step penalty for RL - increases with distance to discourage passive play
+	if not episode_ended and enemy:
+		var distance_to_enemy = (enemy.global_position - global_position).length()
+		var proximity_factor = clamp(distance_to_enemy / (ARENA_RADIUS * 2), 0.0, 1.0)
+		accumulated_reward -= 0.001 * (1.0 + proximity_factor)  # -0.001 close, -0.002 far
 
 
 func get_keyboard_input() -> void:
@@ -130,10 +174,24 @@ func get_keyboard_input() -> void:
 		input_move = Input.get_axis("p1_backward", "p1_forward")
 		input_turn = Input.get_axis("p1_turn_right", "p1_turn_left")
 		input_charge = Input.is_action_just_pressed("p1_charge")
+		# Swing input (Q = left, E = right)
+		if Input.is_action_just_pressed("p1_swing_left"):
+			input_swing = -1
+		elif Input.is_action_just_pressed("p1_swing_right"):
+			input_swing = 1
+		else:
+			input_swing = 0
 	else:
 		input_move = Input.get_axis("p2_backward", "p2_forward")
 		input_turn = Input.get_axis("p2_turn_right", "p2_turn_left")
 		input_charge = Input.is_action_just_pressed("p2_charge")
+		# Swing input (U = left, O = right)
+		if Input.is_action_just_pressed("p2_swing_left"):
+			input_swing = -1
+		elif Input.is_action_just_pressed("p2_swing_right"):
+			input_swing = 1
+		else:
+			input_swing = 0
 
 
 func apply_movement(delta: float) -> void:
@@ -208,9 +266,117 @@ func apply_movement(delta: float) -> void:
 			debug_log("  -> PUSH! dir: %s, strength: %.2f" % [push_direction, push_strength])
 			collider.apply_push(push_direction * push_strength)
 
+			# Momentum reward for hard hits
+			if push_strength > MAX_SPEED * 1.5:
+				accumulated_reward += 0.05 * (push_strength / MAX_SPEED)
+				# Spawn impact particles
+				spawn_impact_effect(collision.get_position(), push_strength / MAX_SPEED)
+
 
 func apply_push(push_vector: Vector3) -> void:
 	velocity += push_vector
+
+
+func process_swing(delta: float) -> void:
+	# Update swing cooldown
+	if swing_cooldown > 0:
+		swing_cooldown -= delta
+
+	# Update swing timer
+	if is_swinging:
+		swing_timer -= delta
+		if swing_timer <= 0:
+			is_swinging = false
+			execute_swing_hit()
+
+	# Check for new swing activation
+	if input_swing != 0 and not is_swinging and swing_cooldown <= 0:
+		is_swinging = true
+		swing_direction = input_swing
+		swing_timer = SWING_DURATION
+		swing_cooldown = SWING_COOLDOWN
+
+	# Clear swing input (it's a one-shot trigger)
+	input_swing = 0
+
+
+func execute_swing_hit() -> void:
+	# Check if enemy is in swing arc
+	if enemy == null:
+		return
+
+	var to_enemy = enemy.global_position - global_position
+	var distance = to_enemy.length()
+
+	if distance > SWING_RANGE:
+		return  # Out of range
+
+	# Calculate angle to enemy in local space
+	var local_to_enemy = to_enemy * global_transform.basis
+	var angle_to_enemy = atan2(local_to_enemy.x, -local_to_enemy.z)
+	var angle_deg = rad_to_deg(angle_to_enemy)
+
+	# Check if enemy is in swing arc
+	# Left swing (-1) hits left side (negative angles), right swing (1) hits right side
+	var arc_center = swing_direction * 45.0
+	var arc_half = SWING_ARC / 2.0
+
+	if abs(angle_deg - arc_center) <= arc_half:
+		# HIT! Apply powerful push
+		var push_dir = to_enemy.normalized()
+		var push_strength = SWING_PUSH_MULT * MAX_SPEED
+		enemy.apply_push(push_dir * push_strength)
+
+		# Momentum reward for landing swing hit
+		accumulated_reward += 0.15
+
+		# Spawn impact particles at enemy position
+		spawn_impact_effect(enemy.global_position, 2.0)
+
+		print("Agent %d SWING HIT! Strength: %.1f" % [player_id, push_strength])
+
+
+func update_arm_visuals() -> void:
+	if left_arm == null or right_arm == null:
+		return
+
+	# Reset both arms to resting position
+	left_arm.rotation_degrees = Vector3(0, 0, 0)
+	right_arm.rotation_degrees = Vector3(0, 0, 0)
+
+	if is_swinging:
+		# Swing animation - rotate arm forward
+		var swing_progress = 1.0 - (swing_timer / SWING_DURATION)
+		var swing_angle = swing_progress * 90.0  # 0 to 90 degrees forward
+
+		if swing_direction == -1:  # Left swing
+			left_arm.rotation_degrees.x = -swing_angle
+		elif swing_direction == 1:  # Right swing
+			right_arm.rotation_degrees.x = -swing_angle
+
+
+func spawn_impact_effect(pos: Vector3, intensity: float) -> void:
+	if impact_particles == null:
+		return
+	impact_particles.global_position = pos
+	impact_particles.amount = int(8 + intensity * 12)
+	impact_particles.restart()
+	impact_particles.emitting = true
+
+
+func calculate_shaping_rewards() -> void:
+	if enemy == null or episode_ended:
+		return
+
+	# Edge pressure: reward when enemy is closer to edge than us
+	var my_pos_relative = global_position - arena_center
+	var my_edge_dist = ARENA_RADIUS - Vector2(my_pos_relative.x, my_pos_relative.z).length()
+	var enemy_pos_relative = enemy.global_position - arena_center
+	var enemy_edge_dist = ARENA_RADIUS - Vector2(enemy_pos_relative.x, enemy_pos_relative.z).length()
+
+	# Small reward when we have positional advantage (enemy closer to edge)
+	if enemy_edge_dist < my_edge_dist:
+		accumulated_reward += 0.002 * (my_edge_dist - enemy_edge_dist)
 
 
 func check_fall() -> void:
@@ -223,7 +389,7 @@ func check_fall() -> void:
 # RL Interface methods
 func get_obs() -> Array:
 	if enemy == null:
-		return [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+		return [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 	var obs = []
 
@@ -263,6 +429,11 @@ func get_obs() -> Array:
 	obs.append(clamp(charge_cooldown / CHARGE_COOLDOWN, 0.0, 1.0))  # 10: My cooldown remaining
 	obs.append(1.0 if enemy.is_charging else 0.0)  # 11: Is enemy charging?
 
+	# Swing state observations (NEW)
+	obs.append(1.0 if is_swinging else 0.0)  # 12: Am I swinging?
+	obs.append(clamp(swing_cooldown / SWING_COOLDOWN, 0.0, 1.0))  # 13: My swing cooldown
+	obs.append(1.0 if enemy.is_swinging else 0.0)  # 14: Is enemy swinging?
+
 	return obs
 
 
@@ -299,3 +470,9 @@ func reset() -> void:
 	is_charging = false
 	charge_timer = 0.0
 	charge_cooldown = 0.0
+	# Reset swing state
+	input_swing = 0
+	is_swinging = false
+	swing_timer = 0.0
+	swing_cooldown = 0.0
+	swing_direction = 0

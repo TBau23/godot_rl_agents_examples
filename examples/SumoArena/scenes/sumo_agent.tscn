@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://csumoagent001"]
+[gd_scene load_steps=9 format=3 uid="uid://csumoagent001"]
 
 [ext_resource type="Script" path="res://scripts/sumo_agent.gd" id="1_agent"]
 [ext_resource type="Script" path="res://scripts/sumo_ai_controller.gd" id="2_controller"]
@@ -14,6 +14,24 @@ height = 1.0
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_001"]
 albedo_color = Color(0.3, 0.5, 0.8, 1)
 
+[sub_resource type="BoxMesh" id="BoxMesh_arm"]
+size = Vector3(0.15, 0.15, 0.6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_arm"]
+albedo_color = Color(0.25, 0.4, 0.7, 1)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_impact"]
+emission_shape = 1
+emission_sphere_radius = 0.3
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 3.0
+initial_velocity_max = 6.0
+gravity = Vector3(0, -5, 0)
+scale_min = 0.1
+scale_max = 0.2
+color = Color(1, 0.8, 0.3, 1)
+
 [node name="SumoAgent" type="CharacterBody3D"]
 collision_layer = 2
 collision_mask = 3
@@ -27,6 +45,25 @@ shape = SubResource("CapsuleShape3D_001")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 mesh = SubResource("CapsuleMesh_001")
 surface_material_override/0 = SubResource("StandardMaterial3D_001")
+
+[node name="LeftArm" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 0.5, -0.3)
+mesh = SubResource("BoxMesh_arm")
+surface_material_override/0 = SubResource("StandardMaterial3D_arm")
+
+[node name="RightArm" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0.5, -0.3)
+mesh = SubResource("BoxMesh_arm")
+surface_material_override/0 = SubResource("StandardMaterial3D_arm")
+
+[node name="ImpactParticles" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+emitting = false
+amount = 16
+one_shot = true
+explosiveness = 1.0
+lifetime = 0.4
+process_material = SubResource("ParticleProcessMaterial_impact")
 
 [node name="AIController3D" type="Node3D" parent="."]
 script = ExtResource("2_controller")
