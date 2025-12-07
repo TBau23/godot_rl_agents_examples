@@ -81,9 +81,9 @@ var episode_ended: bool = false
 # Reference to AI controller (set automatically if present)
 var ai_controller: Node = null
 
-# Arm mesh references
-@onready var left_arm: MeshInstance3D = $LeftArm
-@onready var right_arm: MeshInstance3D = $RightArm
+# Arm references (Node3D parents that rotate for swipe animation)
+@onready var left_arm: Node3D = $LeftArm
+@onready var right_arm: Node3D = $RightArm
 @onready var impact_particles: GPUParticles3D = $ImpactParticles
 
 
@@ -119,15 +119,18 @@ func _ready() -> void:
 			material.emission_energy_multiplier = 0.3
 			mesh.set_surface_override_material(0, material)
 
-	# Apply darker color to arm meshes
+	# Apply darker color to arm meshes (now nested under Node3D)
 	if left_arm and right_arm:
 		var arm_material = StandardMaterial3D.new()
 		arm_material.albedo_color = agent_color.darkened(0.2)
 		arm_material.emission_enabled = true
 		arm_material.emission = agent_color.darkened(0.2)
 		arm_material.emission_energy_multiplier = 0.2
-		left_arm.set_surface_override_material(0, arm_material)
-		right_arm.set_surface_override_material(0, arm_material.duplicate())
+		# Apply to all mesh children of arm nodes
+		for arm in [left_arm, right_arm]:
+			for child in arm.get_children():
+				if child is MeshInstance3D:
+					child.set_surface_override_material(0, arm_material.duplicate())
 
 
 func debug_log(msg: String) -> void:
@@ -345,14 +348,14 @@ func update_arm_visuals() -> void:
 	right_arm.rotation_degrees = Vector3(0, 0, 0)
 
 	if is_swinging:
-		# Swing animation - rotate arm forward
+		# Swipe animation - horizontal arc around Y axis, swiping toward the front
 		var swing_progress = 1.0 - (swing_timer / SWING_DURATION)
-		var swing_angle = swing_progress * 90.0  # 0 to 90 degrees forward
+		var swing_angle = swing_progress * 120.0  # 0 to 120 degrees swipe
 
-		if swing_direction == -1:  # Left swing
-			left_arm.rotation_degrees.x = -swing_angle
-		elif swing_direction == 1:  # Right swing
-			right_arm.rotation_degrees.x = -swing_angle
+		if swing_direction == -1:  # Left arm swipes forward (from side toward front)
+			left_arm.rotation_degrees.y = -swing_angle
+		elif swing_direction == 1:  # Right arm swipes forward (from side toward front)
+			right_arm.rotation_degrees.y = swing_angle
 
 
 func spawn_impact_effect(pos: Vector3, intensity: float) -> void:
