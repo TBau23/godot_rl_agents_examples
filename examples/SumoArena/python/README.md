@@ -3,8 +3,10 @@
 ## Setup (one-time)
 
 ```bash
-cd python
+cd /Users/tombauer/workspace/github.com/TBau23/gauntlet/godot_rl_agents_examples/examples/SumoArena/python
+python3 -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ## Training
@@ -13,7 +15,7 @@ source venv/bin/activate
 
 **Terminal 1 - Python (start first):**
 ```bash
-cd /Users/tombauer/workspace/github.com/TBau23/gauntlet/uncharted/sumo-rl/python
+cd /Users/tombauer/workspace/github.com/TBau23/gauntlet/godot_rl_agents_examples/examples/SumoArena/python
 source venv/bin/activate
 python train.py --timesteps 10000 --viz
 ```
@@ -24,7 +26,7 @@ Wait until you see `waiting for remote GODOT connection on port 11008`
 # Option A: Open Godot editor and press F5/Play
 
 # Option B: Command line
-/Users/tombauer/Downloads/Godot.app/Contents/MacOS/Godot --path /Users/tombauer/workspace/github.com/TBau23/gauntlet/uncharted/sumo-rl
+/Users/tombauer/Downloads/Godot.app/Contents/MacOS/Godot --path /Users/tombauer/workspace/github.com/TBau23/gauntlet/godot_rl_agents_examples/examples/SumoArena
 ```
 
 ### Full training (headless, faster)
@@ -33,10 +35,8 @@ Wait until you see `waiting for remote GODOT connection on port 11008`
 ```bash
 cd /Users/tombauer/workspace/github.com/TBau23/gauntlet/godot_rl_agents_examples/examples/SumoArena/python
 source venv/bin/activate
-python train.py --timesteps 750000
+python train.py --timesteps 1000000
 ```
-
-python train.py --timesteps 100000 --n_envs 4 for multiple envs
 Wait until you see `waiting for remote GODOT connection on port 11008`
 
 **Terminal 2 - Godot headless (start second):**

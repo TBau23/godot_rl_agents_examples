@@ -34,8 +34,9 @@ func get_action_space() -> Dictionary:
 	return {
 		"move": {"size": 1, "action_type": "continuous"},
 		"turn": {"size": 1, "action_type": "continuous"},
-		"charge": {"size": 2, "action_type": "discrete"},  # 0=no charge, 1=charge
-		"swing": {"size": 3, "action_type": "discrete"},   # 0=none, 1=left, 2=right
+		"charge": {"size": 2, "action_type": "discrete"},      # 0=no, 1=charge
+		"swing_left": {"size": 2, "action_type": "discrete"},  # 0=no, 1=swing left
+		"swing_right": {"size": 2, "action_type": "discrete"}, # 0=no, 1=swing right
 	}
 
 
@@ -46,15 +47,23 @@ func set_action(action) -> void:
 	sumo_agent.input_move = clamp(action["move"][0], -1.0, 1.0)
 	sumo_agent.input_turn = clamp(action["turn"][0], -1.0, 1.0)
 	sumo_agent.input_charge = action["charge"] == 1
-	# Swing: 0=none, 1=left, 2=right -> convert to -1, 0, 1
-	sumo_agent.input_swing = action["swing"] - 1
+	# Swing: two binary actions -> -1 (left), 0 (none), 1 (right)
+	# If both pressed, left takes priority
+	if action["swing_left"] == 1:
+		sumo_agent.input_swing = -1
+	elif action["swing_right"] == 1:
+		sumo_agent.input_swing = 1
+	else:
+		sumo_agent.input_swing = 0
 
 
 func get_action() -> Array:
 	# Used for recording expert demos - return current human input
 	if sumo_agent == null:
-		return [0.0, 0.0, 0, 0]
-	return [sumo_agent.input_move, sumo_agent.input_turn, 1 if sumo_agent.input_charge else 0, sumo_agent.input_swing + 1]
+		return [0.0, 0.0, 0, 0, 0]
+	var swing_left = 1 if sumo_agent.input_swing == -1 else 0
+	var swing_right = 1 if sumo_agent.input_swing == 1 else 0
+	return [sumo_agent.input_move, sumo_agent.input_turn, 1 if sumo_agent.input_charge else 0, swing_left, swing_right]
 
 
 func reset() -> void:
