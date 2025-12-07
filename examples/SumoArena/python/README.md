@@ -31,9 +31,9 @@ Wait until you see `waiting for remote GODOT connection on port 11008`
 
 **Terminal 1 - Python (start first):**
 ```bash
-cd /Users/tombauer/workspace/github.com/TBau23/gauntlet/uncharted/sumo-rl/python
+cd /Users/tombauer/workspace/github.com/TBau23/gauntlet/godot_rl_agents_examples/examples/SumoArena/python
 source venv/bin/activate
-python train.py --timesteps 500000
+python train.py --timesteps 750000
 ```
 
 python train.py --timesteps 100000 --n_envs 4 for multiple envs
@@ -41,7 +41,7 @@ Wait until you see `waiting for remote GODOT connection on port 11008`
 
 **Terminal 2 - Godot headless (start second):**
 ```bash
-/Users/tombauer/Downloads/Godot.app/Contents/MacOS/Godot --path /Users/tombauer/workspace/github.com/TBau23/gauntlet/uncharted/sumo-rl --headless
+/Users/tombauer/Downloads/Godot.app/Contents/MacOS/Godot --path /Users/tombauer/workspace/github.com/TBau23/gauntlet/godot_rl_agents_examples/examples/SumoArena --headless
 ```
 
 ## Train.py Options

@@ -11,7 +11,7 @@ ambient_light_color = Color(0.4, 0.4, 0.45, 1)
 
 [node name="MultiTrainingArena" type="Node3D"]
 script = ExtResource("1_spawner")
-num_arenas = 8
+num_arenas = 16
 arena_spacing = 20.0
 
 [node name="Sync" type="Node" parent="."]

@@ -19,24 +19,26 @@ const TURN_SPEED: float = 3.0
 const FRICTION: float = 0.03
 const GRAVITY: float = 9.8
 const FALL_THRESHOLD: float = -1.0
-const ARENA_RADIUS: float = 6.0
+const ARENA_RADIUS: float = 7.0
 
 # Charge ability constants
 const CHARGE_DURATION: float = 0.3
 const CHARGE_COOLDOWN: float = 1.5
-const CHARGE_SPEED_MULT: float = 2.5
-const CHARGE_TURN_MULT: float = 0.2  # Reduced turning while charging
+const CHARGE_SPEED_MULT: float = 4.0   # 2x speed boost (was 2.5)
+const CHARGE_TURN_MULT: float = 0.2    # Reduced turning while charging
 
 # Collision constants
-const PUSH_FORCE_MULT: float = 2.0  # Base push multiplier
-const CHARGE_PUSH_MULT: float = 1.5  # Extra push when charging
+const PUSH_FORCE_MULT: float = 2.0     # Base push multiplier
+const CHARGE_PUSH_MULT: float = 3.5    # Devastating charge push (7x total, was 1.5)
 
 # Swing attack constants
 const SWING_DURATION: float = 0.2        # Wind-up + active frames
 const SWING_COOLDOWN: float = 2.0        # Longer than charge
 const SWING_PUSH_MULT: float = 5.0       # Much stronger than charge
 const SWING_ARC: float = 120.0           # Degrees - hits in front-left or front-right
-const SWING_RANGE: float = 1.5           # Slightly beyond body collision range
+const SWING_RANGE: float = 1.8           # Extended range for longer arms
+const SWING_SPEED_MULT: float = 0.5      # Reduced speed while swinging
+const SWING_TURN_MULT: float = 0.3       # Reduced turning while swinging
 
 # Agent configuration
 @export var player_id: int = 1
@@ -217,13 +219,21 @@ func apply_movement(delta: float) -> void:
 	# Clear charge input (it's a one-shot trigger)
 	input_charge = false
 
-	# Apply rotation (reduced while charging)
-	var turn_mult = CHARGE_TURN_MULT if is_charging else 1.0
+	# Apply rotation (reduced while charging or swinging)
+	var turn_mult = 1.0
+	if is_charging:
+		turn_mult = CHARGE_TURN_MULT
+	elif is_swinging:
+		turn_mult = SWING_TURN_MULT
 	rotate_y(input_turn * TURN_SPEED * turn_mult * delta)
 
 	# Calculate forward force (F = ma -> a = F/m)
-	# Boosted while charging
-	var speed_mult = CHARGE_SPEED_MULT if is_charging else 1.0
+	# Boosted while charging, reduced while swinging
+	var speed_mult = 1.0
+	if is_charging:
+		speed_mult = CHARGE_SPEED_MULT
+	elif is_swinging:
+		speed_mult = SWING_SPEED_MULT
 	var acceleration = (input_move * MOVE_FORCE * speed_mult) / MASS
 	var move_direction = -transform.basis.z  # Forward is -Z in Godot
 	velocity += move_direction * acceleration * delta
@@ -325,8 +335,11 @@ func execute_swing_hit() -> void:
 	var arc_half = SWING_ARC / 2.0
 
 	if abs(angle_deg - arc_center) <= arc_half:
-		# HIT! Apply powerful push
-		var push_dir = to_enemy.normalized()
+		# HIT! Apply powerful push with directional offset
+		# Left swing (-1) pushes enemy rightward, right swing (1) pushes leftward
+		var base_push = to_enemy.normalized()
+		var side_push = transform.basis.x * (-swing_direction * 0.5)  # Perpendicular offset
+		var push_dir = (base_push + side_push).normalized()
 		var push_strength = SWING_PUSH_MULT * MAX_SPEED
 		enemy.apply_push(push_dir * push_strength)
 
