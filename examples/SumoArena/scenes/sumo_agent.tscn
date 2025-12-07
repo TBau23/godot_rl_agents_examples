@@ -1,0 +1,32 @@
+[gd_scene load_steps=5 format=3 uid="uid://csumoagent001"]
+
+[ext_resource type="Script" path="res://scripts/sumo_agent.gd" id="1_agent"]
+[ext_resource type="Script" path="res://scripts/sumo_ai_controller.gd" id="2_controller"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_001"]
+radius = 0.5
+height = 1.0
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_001"]
+radius = 0.5
+height = 1.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_001"]
+albedo_color = Color(0.3, 0.5, 0.8, 1)
+
+[node name="SumoAgent" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 3
+script = ExtResource("1_agent")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("CapsuleShape3D_001")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("CapsuleMesh_001")
+surface_material_override/0 = SubResource("StandardMaterial3D_001")
+
+[node name="AIController3D" type="Node3D" parent="."]
+script = ExtResource("2_controller")

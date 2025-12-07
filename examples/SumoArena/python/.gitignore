@@ -1,0 +1,10 @@
+# Virtual environment
+venv/
+
+# Training runs (checkpoints, tensorboard logs)
+runs/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
