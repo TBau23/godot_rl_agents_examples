@@ -136,20 +136,17 @@ def main():
         )
 
     # Checkpoint callback
-    # save_freq is in terms of n_steps batches, not raw env steps
-    # With n_steps=2048, save_freq=25 means every 25*2048 = 51,200 timesteps
-    steps_per_batch = 2048  # matches PPO n_steps
-    save_freq_batches = max(args.checkpoint_freq // steps_per_batch, 1)
-    print(f"Checkpoint frequency: every {save_freq_batches} batches ({save_freq_batches * steps_per_batch:,} steps)")
+    # save_freq is in raw env steps (not batches)
+    print(f"Checkpoint frequency: every {args.checkpoint_freq:,} steps")
     print(f"Checkpoint dir: {checkpoint_dir}")
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=save_freq_batches,
+        save_freq=args.checkpoint_freq,
         save_path=checkpoint_dir,
         name_prefix="sumo_ppo",
         save_replay_buffer=False,
         save_vecnormalize=False,
-        verbose=2,  # Print when saving
+        verbose=1,
     )
 
     # Train!

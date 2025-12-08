@@ -8,6 +8,7 @@ extends Node3D
 ## - Coordinating resets through the Sync node
 
 const MAX_EPISODE_STEPS: int = 1000
+const SPAWN_RADIUS: float = 3.0  # Distance from center to spawn
 
 # References to agents (set in _ready)
 var agent1: CharacterBody3D
@@ -20,8 +21,14 @@ var episode_step: int = 0
 var episode_active: bool = true  # Prevents double-processing and timer during reset
 var reset_in_progress: bool = false  # Prevents multiple reset calls
 
+# Random number generator for spawn randomization
+var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
 
 func _ready() -> void:
+	# Initialize RNG with random seed
+	rng.randomize()
+
 	# Get agent references
 	agent1 = $Agent1
 	agent2 = $Agent2
@@ -38,6 +45,9 @@ func _ready() -> void:
 	var arena_center = global_position
 	agent1.arena_center = arena_center
 	agent2.arena_center = arena_center
+
+	# Randomize initial spawn positions
+	_randomize_spawn_positions()
 
 
 func _physics_process(_delta: float) -> void:
@@ -126,7 +136,10 @@ func _reset_agents_delayed() -> void:
 	# Small delay so you can see the fall, then reset
 	await get_tree().create_timer(0.5).timeout
 
-	# Reset agents
+	# Randomize spawn positions before reset
+	_randomize_spawn_positions()
+
+	# Reset agents (they'll use newly assigned spawn_position/spawn_rotation)
 	agent1.reset()
 	agent2.reset()
 
@@ -148,3 +161,37 @@ func _reset_agents_delayed() -> void:
 	reset_in_progress = false
 
 	print("Episode reset - new round!")
+
+
+func _randomize_spawn_positions() -> void:
+	## Randomize spawn positions to prevent self-play bias.
+	## Agents spawn on opposite sides of arena, facing each other.
+	## Random angle ensures both agents experience all orientations equally.
+
+	var arena_center = global_position
+
+	# Random angle for spawn axis (0 to 2*PI)
+	var spawn_angle = rng.randf() * TAU
+
+	# Agent 1 spawns at spawn_angle, Agent 2 at opposite side
+	var pos1 = arena_center + Vector3(
+		cos(spawn_angle) * SPAWN_RADIUS,
+		0.5,
+		sin(spawn_angle) * SPAWN_RADIUS
+	)
+	var pos2 = arena_center + Vector3(
+		cos(spawn_angle + PI) * SPAWN_RADIUS,
+		0.5,
+		sin(spawn_angle + PI) * SPAWN_RADIUS
+	)
+
+	# Rotation to face opponent (toward center from each spawn point)
+	# Agent 1 faces toward Agent 2 (opposite direction of spawn_angle)
+	var rot1 = spawn_angle + PI  # Face inward
+	var rot2 = spawn_angle       # Face inward (opposite direction)
+
+	# Update spawn positions (agent.reset() will use these)
+	agent1.spawn_position = pos1
+	agent1.spawn_rotation = rot1
+	agent2.spawn_position = pos2
+	agent2.spawn_rotation = rot2
