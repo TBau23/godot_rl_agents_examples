@@ -33,8 +33,8 @@ def parse_args():
     parser.add_argument(
         "--checkpoint_freq",
         type=int,
-        default=50_000,
-        help="Save checkpoint every N steps (default: 50000)",
+        default=25_000,
+        help="Save checkpoint every N steps (default: 25000)",
     )
     parser.add_argument(
         "--viz",
@@ -136,12 +136,20 @@ def main():
         )
 
     # Checkpoint callback
+    # save_freq is in terms of n_steps batches, not raw env steps
+    # With n_steps=2048, save_freq=25 means every 25*2048 = 51,200 timesteps
+    steps_per_batch = 2048  # matches PPO n_steps
+    save_freq_batches = max(args.checkpoint_freq // steps_per_batch, 1)
+    print(f"Checkpoint frequency: every {save_freq_batches} batches ({save_freq_batches * steps_per_batch:,} steps)")
+    print(f"Checkpoint dir: {checkpoint_dir}")
+
     checkpoint_callback = CheckpointCallback(
-        save_freq=max(args.checkpoint_freq // args.n_envs, 1),
+        save_freq=save_freq_batches,
         save_path=checkpoint_dir,
         name_prefix="sumo_ppo",
         save_replay_buffer=False,
         save_vecnormalize=False,
+        verbose=2,  # Print when saving
     )
 
     # Train!

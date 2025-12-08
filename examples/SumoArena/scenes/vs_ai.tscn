@@ -1,0 +1,41 @@
+[gd_scene load_steps=6 format=3 uid="uid://cvsaiarena001"]
+
+[ext_resource type="PackedScene" uid="uid://bplatform001" path="res://scenes/platform.tscn" id="1_platform"]
+[ext_resource type="PackedScene" uid="uid://csumoagent001" path="res://scenes/sumo_agent.tscn" id="2_agent"]
+[ext_resource type="Script" path="res://scripts/vs_ai_manager.gd" id="3_manager"]
+[ext_resource type="Script" path="res://scripts/inference_ai_controller.gd" id="4_inference"]
+
+[sub_resource type="Environment" id="Environment_001"]
+background_mode = 1
+background_color = Color(0.12, 0.14, 0.18, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.4, 0.4, 0.45, 1)
+
+[node name="VsAIArena" type="Node3D"]
+script = ExtResource("3_manager")
+
+[node name="Platform" parent="." instance=ExtResource("1_platform")]
+
+[node name="Agent1" parent="." instance=ExtResource("2_agent")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 3, 0.5, 0)
+player_id = 1
+agent_color = Color(0.2, 0.6, 0.9, 1)
+
+[node name="Agent2" parent="." instance=ExtResource("2_agent")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -3, 0.5, 0)
+player_id = 2
+agent_color = Color(0.9, 0.2, 0.2, 1)
+
+[node name="InferenceAI" type="Node3D" parent="Agent2"]
+script = ExtResource("4_inference")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.866, 0, -0.866, 0.5, 0, 15, 10)
+fov = 50.0
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, -0.354, 0.354, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 10, 0)
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_001")

@@ -29,6 +29,9 @@ Wait until you see `waiting for remote GODOT connection on port 11008`
 /Users/tombauer/Downloads/Godot.app/Contents/MacOS/Godot --path /Users/tombauer/workspace/github.com/TBau23/gauntlet/godot_rl_agents_examples/examples/SumoArena
 ```
 
+Open and play multi training scene in godot to get faster training
+python train.py --timesteps 1000000 --checkpoint_freq 100000 --run_name timelapse_test
+
 ### Full training (headless, faster)
 
 **Terminal 1 - Python (start first):**

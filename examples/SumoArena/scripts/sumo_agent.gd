@@ -87,6 +87,20 @@ var ai_controller: Node = null
 @onready var left_arm: Node3D = $LeftArm
 @onready var right_arm: Node3D = $RightArm
 @onready var impact_particles: GPUParticles3D = $ImpactParticles
+@onready var dust_particles: GPUParticles3D = $DustParticles
+@onready var trail_particles: GPUParticles3D = $TrailParticles
+@onready var mesh_instance: MeshInstance3D = $MeshInstance3D
+
+# Visual effect state
+var base_scale: Vector3 = Vector3.ONE
+var target_scale: Vector3 = Vector3.ONE
+var scale_lerp_speed: float = 15.0
+
+# Arm animation state
+var left_arm_target: Vector3 = Vector3.ZERO
+var right_arm_target: Vector3 = Vector3.ZERO
+var arm_lerp_speed: float = 12.0
+var idle_time: float = 0.0
 
 
 func _ready() -> void:
@@ -108,31 +122,15 @@ func _ready() -> void:
 			log_file.store_line("Log path: %s" % ProjectSettings.globalize_path(log_path))
 			print("Agent %d logging to: %s" % [player_id, ProjectSettings.globalize_path(log_path)])
 
-	# Apply agent color to mesh with emissive glow
-	var mesh = $MeshInstance3D
-	if mesh:
-		var material = mesh.get_surface_override_material(0)
-		if material:
-			material = material.duplicate()
-			material.albedo_color = agent_color
-			# Add emissive glow
-			material.emission_enabled = true
-			material.emission = agent_color
-			material.emission_energy_multiplier = 0.3
-			mesh.set_surface_override_material(0, material)
-
-	# Apply darker color to arm meshes (now nested under Node3D)
-	if left_arm and right_arm:
-		var arm_material = StandardMaterial3D.new()
-		arm_material.albedo_color = agent_color.darkened(0.2)
-		arm_material.emission_enabled = true
-		arm_material.emission = agent_color.darkened(0.2)
-		arm_material.emission_energy_multiplier = 0.2
-		# Apply to all mesh children of arm nodes
-		for arm in [left_arm, right_arm]:
-			for child in arm.get_children():
-				if child is MeshInstance3D:
-					child.set_surface_override_material(0, arm_material.duplicate())
+	# Apply agent color to mawashi (belt) with emissive glow
+	var mawashi = get_node_or_null("Mawashi")
+	if mawashi:
+		var material = StandardMaterial3D.new()
+		material.albedo_color = agent_color.darkened(0.3)
+		material.emission_enabled = true
+		material.emission = agent_color
+		material.emission_energy_multiplier = 0.8
+		mawashi.set_surface_override_material(0, material)
 
 
 func debug_log(msg: String) -> void:
@@ -142,15 +140,16 @@ func debug_log(msg: String) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	# Determine control mode: use keyboard if heuristic is "human" or no AI controller
-	var use_keyboard = true
+	# Determine control mode: use keyboard if not AI controlled
+	# is_controlled_by_ai can be set by InferenceAI or by AIController3D
+	var use_keyboard = not is_controlled_by_ai
 	if ai_controller and ai_controller.heuristic != "human":
 		use_keyboard = false
 
 	# Get input
 	if use_keyboard:
 		get_keyboard_input()
-	# else: AI input is set externally via set_action()
+	# else: AI input is set externally via set_action() or InferenceAI
 
 	# Apply movement
 	apply_movement(delta)
@@ -160,6 +159,9 @@ func _physics_process(delta: float) -> void:
 
 	# Update arm visuals
 	update_arm_visuals()
+
+	# Update visual effects
+	update_visual_effects(delta)
 
 	# Check for fall
 	check_fall()
@@ -356,28 +358,126 @@ func update_arm_visuals() -> void:
 	if left_arm == null or right_arm == null:
 		return
 
-	# Reset both arms to resting position
-	left_arm.rotation_degrees = Vector3(0, 0, 0)
-	right_arm.rotation_degrees = Vector3(0, 0, 0)
+	var delta = get_physics_process_delta_time()
+	idle_time += delta
 
+	# Calculate target arm positions based on state
 	if is_swinging:
-		# Swipe animation - horizontal arc around Y axis, swiping toward the front
 		var swing_progress = 1.0 - (swing_timer / SWING_DURATION)
-		var swing_angle = swing_progress * 120.0  # 0 to 120 degrees swipe
+		# Use easing for more dynamic feel - fast start, slow end
+		var eased_progress = 1.0 - pow(1.0 - swing_progress, 2.0)
+		var swing_angle = eased_progress * 130.0
 
-		if swing_direction == -1:  # Left arm swipes forward (from side toward front)
-			left_arm.rotation_degrees.y = -swing_angle
-		elif swing_direction == 1:  # Right arm swipes forward (from side toward front)
-			right_arm.rotation_degrees.y = swing_angle
+		if swing_direction == -1:  # Left arm swipes
+			left_arm_target = Vector3(20, -swing_angle, -15)  # Add some vertical lift
+			right_arm_target = Vector3(-10, 20, 10)  # Other arm pulls back
+		elif swing_direction == 1:  # Right arm swipes
+			right_arm_target = Vector3(20, swing_angle, 15)
+			left_arm_target = Vector3(-10, -20, -10)
+	elif is_charging:
+		# Arms back in running pose
+		var pump = sin(idle_time * 15.0) * 15.0  # Fast arm pump
+		left_arm_target = Vector3(-20 + pump, 30, -10)
+		right_arm_target = Vector3(-20 - pump, -30, 10)
+	else:
+		# Idle sway - subtle breathing motion
+		var sway = sin(idle_time * 2.0) * 5.0
+		var sway2 = sin(idle_time * 2.3 + 1.0) * 5.0
+		left_arm_target = Vector3(sway, sway2 * 0.5, sway * 0.5)
+		right_arm_target = Vector3(sway2, -sway * 0.5, -sway2 * 0.5)
+
+		# Add movement influence - arms swing opposite to velocity
+		var speed = Vector2(velocity.x, velocity.z).length()
+		if speed > 1.0:
+			var move_sway = sin(idle_time * 8.0) * min(speed * 2.0, 20.0)
+			left_arm_target.y += move_sway
+			right_arm_target.y -= move_sway
+
+	# Smoothly lerp arms to target
+	left_arm.rotation_degrees = left_arm.rotation_degrees.lerp(left_arm_target, arm_lerp_speed * delta)
+	right_arm.rotation_degrees = right_arm.rotation_degrees.lerp(right_arm_target, arm_lerp_speed * delta)
 
 
 func spawn_impact_effect(pos: Vector3, intensity: float) -> void:
 	if impact_particles == null:
 		return
 	impact_particles.global_position = pos
-	impact_particles.amount = int(8 + intensity * 12)
+	impact_particles.amount = int(10 + intensity * 15)
 	impact_particles.restart()
 	impact_particles.emitting = true
+
+	# Also spawn dust at ground level
+	if dust_particles:
+		dust_particles.global_position = Vector3(pos.x, 0.1, pos.z)
+		dust_particles.amount = int(6 + intensity * 8)
+		dust_particles.restart()
+		dust_particles.emitting = true
+
+	# Squash effect on impact
+	apply_squash(0.15 + intensity * 0.1)
+
+
+func update_visual_effects(delta: float) -> void:
+	# Lerp scale back to normal (squash/stretch recovery)
+	if mesh_instance:
+		mesh_instance.scale = mesh_instance.scale.lerp(target_scale, scale_lerp_speed * delta)
+
+	# Trail effect when moving fast or charging
+	if trail_particles:
+		var speed = Vector2(velocity.x, velocity.z).length()
+		var should_trail = speed > MAX_SPEED * 0.7 or is_charging
+
+		if should_trail and not trail_particles.emitting:
+			trail_particles.emitting = true
+			# Tint trail to agent color
+			var mat = trail_particles.process_material as ParticleProcessMaterial
+			if mat:
+				mat.color = Color(agent_color.r, agent_color.g, agent_color.b, 0.5)
+		elif not should_trail and trail_particles.emitting:
+			trail_particles.emitting = false
+
+	# Stretch effect when charging (elongate in movement direction)
+	if is_charging and mesh_instance:
+		target_scale = Vector3(0.85, 1.0, 1.15)  # Stretch forward
+	elif is_swinging and mesh_instance:
+		# Slight twist effect when swinging
+		target_scale = Vector3(1.1, 0.95, 0.95)
+	else:
+		target_scale = base_scale
+
+
+func apply_squash(intensity: float) -> void:
+	# Squash = flatten vertically, expand horizontally
+	if mesh_instance:
+		var squash = 1.0 - clamp(intensity, 0.0, 0.3)
+		var expand = 1.0 + clamp(intensity * 0.5, 0.0, 0.15)
+		mesh_instance.scale = Vector3(expand, squash, expand)
+
+
+func spawn_fall_splash() -> void:
+	# Called when agent falls - spawn splash at edge
+	if dust_particles == null:
+		return
+
+	# Calculate edge position (project current position to edge)
+	var pos_2d = Vector2(global_position.x - arena_center.x, global_position.z - arena_center.z)
+	var dir = pos_2d.normalized()
+	var edge_pos = Vector3(
+		arena_center.x + dir.x * ARENA_RADIUS,
+		0.1,
+		arena_center.z + dir.y * ARENA_RADIUS
+	)
+
+	dust_particles.global_position = edge_pos
+	dust_particles.amount = 20
+
+	# Tint splash to agent color
+	var mat = dust_particles.process_material as ParticleProcessMaterial
+	if mat:
+		mat.color = Color(agent_color.r, agent_color.g, agent_color.b, 0.7)
+
+	dust_particles.restart()
+	dust_particles.emitting = true
 
 
 func calculate_shaping_rewards() -> void:
@@ -398,6 +498,7 @@ func calculate_shaping_rewards() -> void:
 func check_fall() -> void:
 	if global_position.y < FALL_THRESHOLD and not episode_ended:
 		print("Agent %d fell off!" % player_id)
+		spawn_fall_splash()
 		episode_ended = true  # Prevent repeated signals
 		fell_off.emit()
 
@@ -492,3 +593,9 @@ func reset() -> void:
 	swing_timer = 0.0
 	swing_cooldown = 0.0
 	swing_direction = 0
+	# Reset visual state
+	target_scale = base_scale
+	if mesh_instance:
+		mesh_instance.scale = base_scale
+	if trail_particles:
+		trail_particles.emitting = false

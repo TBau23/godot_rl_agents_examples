@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://bplatform001"]
+[gd_scene load_steps=14 format=3 uid="uid://bplatform001"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_001"]
 height = 0.5
@@ -10,7 +10,7 @@ bottom_radius = 7.0
 height = 0.5
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_001"]
-albedo_color = Color(0.6, 0.55, 0.45, 1)
+albedo_color = Color(0.55, 0.45, 0.35, 1)
 
 [sub_resource type="TorusMesh" id="TorusMesh_edge"]
 inner_radius = 6.85
@@ -21,6 +21,30 @@ albedo_color = Color(0.8, 0.3, 0.2, 1)
 emission_enabled = true
 emission = Color(0.9, 0.3, 0.2, 1)
 emission_energy_multiplier = 1.5
+
+[sub_resource type="TorusMesh" id="TorusMesh_inner_circle"]
+inner_radius = 5.4
+outer_radius = 5.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_white_line"]
+albedo_color = Color(0.95, 0.93, 0.88, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_shikiri_line"]
+size = Vector3(1.2, 0.02, 0.15)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shikiri"]
+albedo_color = Color(0.9, 0.88, 0.82, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_center_circle"]
+top_radius = 0.4
+bottom_radius = 0.4
+height = 0.02
+
+[sub_resource type="BoxMesh" id="BoxMesh_corner_mark"]
+size = Vector3(0.8, 0.02, 0.12)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_corner"]
+albedo_color = Color(0.85, 0.75, 0.6, 1)
 
 [node name="Platform" type="StaticBody3D"]
 collision_layer = 1
@@ -39,3 +63,43 @@ surface_material_override/0 = SubResource("StandardMaterial3D_001")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0)
 mesh = SubResource("TorusMesh_edge")
 surface_material_override/0 = SubResource("StandardMaterial3D_edge")
+
+[node name="InnerCircle" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, 0)
+mesh = SubResource("TorusMesh_inner_circle")
+surface_material_override/0 = SubResource("StandardMaterial3D_white_line")
+
+[node name="ShikiriLineEast" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.01, 0)
+mesh = SubResource("BoxMesh_shikiri_line")
+surface_material_override/0 = SubResource("StandardMaterial3D_shikiri")
+
+[node name="ShikiriLineWest" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0.01, 0)
+mesh = SubResource("BoxMesh_shikiri_line")
+surface_material_override/0 = SubResource("StandardMaterial3D_shikiri")
+
+[node name="CenterMark" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, 0)
+mesh = SubResource("CylinderMesh_center_circle")
+surface_material_override/0 = SubResource("StandardMaterial3D_white_line")
+
+[node name="CornerMarkN" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, -5.8)
+mesh = SubResource("BoxMesh_corner_mark")
+surface_material_override/0 = SubResource("StandardMaterial3D_corner")
+
+[node name="CornerMarkS" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, 5.8)
+mesh = SubResource("BoxMesh_corner_mark")
+surface_material_override/0 = SubResource("StandardMaterial3D_corner")
+
+[node name="CornerMarkE" type="MeshInstance3D" parent="."]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 5.8, 0.01, 0)
+mesh = SubResource("BoxMesh_corner_mark")
+surface_material_override/0 = SubResource("StandardMaterial3D_corner")
+
+[node name="CornerMarkW" type="MeshInstance3D" parent="."]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -5.8, 0.01, 0)
+mesh = SubResource("BoxMesh_corner_mark")
+surface_material_override/0 = SubResource("StandardMaterial3D_corner")

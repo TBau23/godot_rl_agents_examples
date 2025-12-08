@@ -1,39 +1,121 @@
-[gd_scene load_steps=10 format=3 uid="uid://csumoagent001"]
+[gd_scene load_steps=25 format=3 uid="uid://csumoagent001"]
 
 [ext_resource type="Script" path="res://scripts/sumo_agent.gd" id="1_agent"]
 [ext_resource type="Script" path="res://scripts/sumo_ai_controller.gd" id="2_controller"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_particle_impact"]
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 0.9, 0.4, 1)
+emission_enabled = true
+emission = Color(1, 0.8, 0.3, 1)
+emission_energy_multiplier = 2.0
+billboard_mode = 3
+
+[sub_resource type="QuadMesh" id="QuadMesh_particle_impact"]
+material = SubResource("StandardMaterial3D_particle_impact")
+size = Vector2(0.15, 0.15)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_particle_dust"]
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.7, 0.65, 0.5, 0.8)
+billboard_mode = 3
+
+[sub_resource type="QuadMesh" id="QuadMesh_particle_dust"]
+material = SubResource("StandardMaterial3D_particle_dust")
+size = Vector2(0.2, 0.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_particle_trail"]
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.5, 0.7, 1.0, 0.5)
+emission_enabled = true
+emission = Color(0.5, 0.7, 1.0, 1)
+emission_energy_multiplier = 0.5
+billboard_mode = 3
+
+[sub_resource type="QuadMesh" id="QuadMesh_particle_trail"]
+material = SubResource("StandardMaterial3D_particle_trail")
+size = Vector2(0.25, 0.25)
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_001"]
 radius = 0.5
 height = 1.0
 
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_001"]
-radius = 0.5
-height = 1.0
+[sub_resource type="SphereMesh" id="SphereMesh_body"]
+radius = 0.55
+height = 0.9
+
+[sub_resource type="SphereMesh" id="SphereMesh_head"]
+radius = 0.3
+
+[sub_resource type="SphereMesh" id="SphereMesh_topknot"]
+radius = 0.12
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_mawashi"]
+top_radius = 0.5
+bottom_radius = 0.45
+height = 0.4
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_001"]
 albedo_color = Color(0.3, 0.5, 0.8, 1)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_skin"]
+albedo_color = Color(0.85, 0.7, 0.55, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hair"]
+albedo_color = Color(0.1, 0.08, 0.05, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mawashi"]
+albedo_color = Color(0.15, 0.12, 0.4, 1)
+
 [sub_resource type="BoxMesh" id="BoxMesh_upper_arm"]
-size = Vector3(0.56, 0.15, 0.15)
+size = Vector3(0.56, 0.18, 0.18)
 
 [sub_resource type="BoxMesh" id="BoxMesh_forearm"]
-size = Vector3(0.5, 0.12, 0.12)
+size = Vector3(0.5, 0.15, 0.15)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_arm"]
-albedo_color = Color(0.25, 0.4, 0.7, 1)
+albedo_color = Color(0.85, 0.7, 0.55, 1)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_impact"]
 emission_shape = 1
 emission_sphere_radius = 0.3
 direction = Vector3(0, 1, 0)
 spread = 180.0
-initial_velocity_min = 3.0
-initial_velocity_max = 6.0
-gravity = Vector3(0, -5, 0)
+initial_velocity_min = 4.0
+initial_velocity_max = 8.0
+gravity = Vector3(0, -8, 0)
+scale_min = 0.15
+scale_max = 0.3
+color = Color(1, 0.9, 0.4, 1)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
+emission_shape = 1
+emission_sphere_radius = 0.2
+direction = Vector3(0, 0.5, 0)
+spread = 60.0
+initial_velocity_min = 1.0
+initial_velocity_max = 3.0
+gravity = Vector3(0, -2, 0)
 scale_min = 0.1
-scale_max = 0.2
-color = Color(1, 0.8, 0.3, 1)
+scale_max = 0.25
+color = Color(0.7, 0.65, 0.5, 0.8)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_trail"]
+emission_shape = 0
+direction = Vector3(0, 0, 1)
+spread = 5.0
+initial_velocity_min = 0.0
+initial_velocity_max = 0.5
+gravity = Vector3(0, 0, 0)
+scale_min = 0.2
+scale_max = 0.4
+color = Color(0.5, 0.7, 1.0, 0.4)
 
 [node name="SumoAgent" type="CharacterBody3D"]
 collision_layer = 2
@@ -45,12 +127,27 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("CapsuleShape3D_001")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
-mesh = SubResource("CapsuleMesh_001")
-surface_material_override/0 = SubResource("StandardMaterial3D_001")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+mesh = SubResource("SphereMesh_body")
+surface_material_override/0 = SubResource("StandardMaterial3D_skin")
+
+[node name="Head" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+mesh = SubResource("SphereMesh_head")
+surface_material_override/0 = SubResource("StandardMaterial3D_skin")
+
+[node name="Topknot" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, -0.05)
+mesh = SubResource("SphereMesh_topknot")
+surface_material_override/0 = SubResource("StandardMaterial3D_hair")
+
+[node name="Mawashi" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+mesh = SubResource("CylinderMesh_mawashi")
+surface_material_override/0 = SubResource("StandardMaterial3D_mawashi")
 
 [node name="LeftArm" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 0.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 0.5, 0)
 
 [node name="UpperArm" type="MeshInstance3D" parent="LeftArm"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.28, 0, 0)
@@ -63,7 +160,7 @@ mesh = SubResource("BoxMesh_forearm")
 surface_material_override/0 = SubResource("StandardMaterial3D_arm")
 
 [node name="RightArm" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, 0.5, 0)
 
 [node name="UpperArm" type="MeshInstance3D" parent="RightArm"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.28, 0, 0)
@@ -78,11 +175,30 @@ surface_material_override/0 = SubResource("StandardMaterial3D_arm")
 [node name="ImpactParticles" type="GPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 emitting = false
-amount = 16
+amount = 20
 one_shot = true
 explosiveness = 1.0
-lifetime = 0.4
+lifetime = 0.5
 process_material = SubResource("ParticleProcessMaterial_impact")
+draw_pass_1 = SubResource("QuadMesh_particle_impact")
+
+[node name="DustParticles" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+emitting = false
+amount = 12
+one_shot = true
+explosiveness = 0.8
+lifetime = 0.6
+process_material = SubResource("ParticleProcessMaterial_dust")
+draw_pass_1 = SubResource("QuadMesh_particle_dust")
+
+[node name="TrailParticles" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+emitting = false
+amount = 8
+lifetime = 0.3
+process_material = SubResource("ParticleProcessMaterial_trail")
+draw_pass_1 = SubResource("QuadMesh_particle_trail")
 
 [node name="AIController3D" type="Node3D" parent="."]
 script = ExtResource("2_controller")
