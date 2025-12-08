@@ -136,12 +136,16 @@ def main():
         )
 
     # Checkpoint callback
-    # save_freq is in raw env steps (not batches)
-    print(f"Checkpoint frequency: every {args.checkpoint_freq:,} steps")
+    # save_freq is in rollout steps (calls to _on_step), not raw timesteps
+    # With PPO n_steps=2048, each _on_step = 2048 timesteps
+    # So we divide by n_steps to get the desired checkpoint frequency
+    n_steps = 2048  # Must match PPO n_steps above
+    checkpoint_rollouts = max(1, args.checkpoint_freq // n_steps)
+    print(f"Checkpoint frequency: every {args.checkpoint_freq:,} steps (~{checkpoint_rollouts} rollouts)")
     print(f"Checkpoint dir: {checkpoint_dir}")
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=args.checkpoint_freq,
+        save_freq=checkpoint_rollouts,
         save_path=checkpoint_dir,
         name_prefix="sumo_ppo",
         save_replay_buffer=False,
