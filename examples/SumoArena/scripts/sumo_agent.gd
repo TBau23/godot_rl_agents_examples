@@ -40,6 +40,12 @@ const SWING_RANGE: float = 1.8           # Extended range for longer arms
 const SWING_SPEED_MULT: float = 0.5      # Reduced speed while swinging
 const SWING_TURN_MULT: float = 0.3       # Reduced turning while swinging
 
+# Dodge ability constants
+const DODGE_DURATION: float = 0.15       # Quick lateral burst
+const DODGE_COOLDOWN: float = 1.0        # Shorter cooldown - defensive tool
+const DODGE_SPEED_MULT: float = 1.5      # Moderate lateral movement
+const DODGE_RECOVERY: float = 0.1        # Brief recovery after dodge (can't act)
+
 # Agent configuration
 @export var player_id: int = 1
 @export var agent_color: Color = Color(0.3, 0.5, 0.8, 1.0)
@@ -61,6 +67,15 @@ var swing_timer: float = 0.0
 var swing_cooldown: float = 0.0
 var swing_direction: int = 0  # -1 = left, 0 = none, 1 = right
 var input_swing: int = 0  # Input from keyboard or AI
+
+# Dodge ability state
+var is_dodging: bool = false
+var dodge_timer: float = 0.0
+var dodge_cooldown: float = 0.0
+var dodge_direction: int = 0  # -1 = left, 1 = right
+var input_dodge: int = 0  # Input from keyboard or AI
+var is_dodge_recovering: bool = false
+var dodge_recovery_timer: float = 0.0
 
 # Debug log file
 var log_file: FileAccess = null
@@ -188,6 +203,13 @@ func get_keyboard_input() -> void:
 			input_swing = 1
 		else:
 			input_swing = 0
+		# Dodge input (Z = left, C = right)
+		if Input.is_action_just_pressed("p1_dodge_left"):
+			input_dodge = -1
+		elif Input.is_action_just_pressed("p1_dodge_right"):
+			input_dodge = 1
+		else:
+			input_dodge = 0
 	else:
 		input_move = Input.get_axis("p2_backward", "p2_forward")
 		input_turn = Input.get_axis("p2_turn_right", "p2_turn_left")
@@ -199,6 +221,13 @@ func get_keyboard_input() -> void:
 			input_swing = 1
 		else:
 			input_swing = 0
+		# Dodge input (J = left, L = right)
+		if Input.is_action_just_pressed("p2_dodge_left"):
+			input_dodge = -1
+		elif Input.is_action_just_pressed("p2_dodge_right"):
+			input_dodge = 1
+		else:
+			input_dodge = 0
 
 
 func apply_movement(delta: float) -> void:
@@ -220,6 +249,49 @@ func apply_movement(delta: float) -> void:
 
 	# Clear charge input (it's a one-shot trigger)
 	input_charge = false
+
+	# Update dodge cooldown
+	if dodge_cooldown > 0:
+		dodge_cooldown -= delta
+
+	# Update dodge recovery
+	if is_dodge_recovering:
+		dodge_recovery_timer -= delta
+		if dodge_recovery_timer <= 0:
+			is_dodge_recovering = false
+
+	# Update dodge timer
+	if is_dodging:
+		dodge_timer -= delta
+		if dodge_timer <= 0:
+			is_dodging = false
+			# Enter recovery state
+			is_dodge_recovering = true
+			dodge_recovery_timer = DODGE_RECOVERY
+
+	# Check for new dodge activation (can't dodge while charging, swinging, or recovering)
+	if input_dodge != 0 and not is_dodging and not is_dodge_recovering and dodge_cooldown <= 0 and not is_charging and not is_swinging:
+		is_dodging = true
+		dodge_direction = input_dodge
+		dodge_timer = DODGE_DURATION
+		dodge_cooldown = DODGE_COOLDOWN
+		# Apply immediate lateral velocity burst
+		var lateral_dir = transform.basis.x * dodge_direction  # Left = -X, Right = +X
+		velocity = lateral_dir * MAX_SPEED * DODGE_SPEED_MULT
+
+	# Clear dodge input (it's a one-shot trigger)
+	input_dodge = 0
+
+	# During dodge or recovery, skip normal movement
+	if is_dodging or is_dodge_recovering:
+		# Apply friction (velocity decay) - dodge momentum fades
+		velocity.x *= (1.0 - FRICTION)
+		velocity.z *= (1.0 - FRICTION)
+		# Apply gravity
+		velocity.y -= GRAVITY * delta
+		# Move
+		move_and_slide()
+		return  # Skip normal movement processing
 
 	# Apply rotation (reduced while charging or swinging)
 	var turn_mult = 1.0
@@ -379,6 +451,14 @@ func update_arm_visuals() -> void:
 		var pump = sin(idle_time * 15.0) * 15.0  # Fast arm pump
 		left_arm_target = Vector3(-20 + pump, 30, -10)
 		right_arm_target = Vector3(-20 - pump, -30, 10)
+	elif is_dodging:
+		# Arms out for balance during dodge
+		if dodge_direction == -1:  # Dodging left
+			left_arm_target = Vector3(30, -60, -20)  # Leading arm out
+			right_arm_target = Vector3(-10, 40, 15)   # Trailing arm up
+		else:  # Dodging right
+			right_arm_target = Vector3(30, 60, 20)   # Leading arm out
+			left_arm_target = Vector3(-10, -40, -15)  # Trailing arm up
 	else:
 		# Idle sway - subtle breathing motion
 		var sway = sin(idle_time * 2.0) * 5.0
@@ -422,10 +502,10 @@ func update_visual_effects(delta: float) -> void:
 	if mesh_instance:
 		mesh_instance.scale = mesh_instance.scale.lerp(target_scale, scale_lerp_speed * delta)
 
-	# Trail effect when moving fast or charging
+	# Trail effect when moving fast, charging, or dodging
 	if trail_particles:
 		var speed = Vector2(velocity.x, velocity.z).length()
-		var should_trail = speed > MAX_SPEED * 0.7 or is_charging
+		var should_trail = speed > MAX_SPEED * 0.7 or is_charging or is_dodging
 
 		if should_trail and not trail_particles.emitting:
 			trail_particles.emitting = true
@@ -442,6 +522,9 @@ func update_visual_effects(delta: float) -> void:
 	elif is_swinging and mesh_instance:
 		# Slight twist effect when swinging
 		target_scale = Vector3(1.1, 0.95, 0.95)
+	elif is_dodging and mesh_instance:
+		# Lateral stretch in dodge direction
+		target_scale = Vector3(1.2, 0.9, 0.85)  # Stretch sideways, compress forward
 	else:
 		target_scale = base_scale
 
@@ -506,7 +589,7 @@ func check_fall() -> void:
 # RL Interface methods
 func get_obs() -> Array:
 	if enemy == null:
-		return [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+		return [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 	var obs = []
 
@@ -546,10 +629,16 @@ func get_obs() -> Array:
 	obs.append(clamp(charge_cooldown / CHARGE_COOLDOWN, 0.0, 1.0))  # 10: My cooldown remaining
 	obs.append(1.0 if enemy.is_charging else 0.0)  # 11: Is enemy charging?
 
-	# Swing state observations (NEW)
+	# Swing state observations
 	obs.append(1.0 if is_swinging else 0.0)  # 12: Am I swinging?
 	obs.append(clamp(swing_cooldown / SWING_COOLDOWN, 0.0, 1.0))  # 13: My swing cooldown
 	obs.append(1.0 if enemy.is_swinging else 0.0)  # 14: Is enemy swinging?
+
+	# Dodge state observations
+	obs.append(1.0 if is_dodging else 0.0)  # 15: Am I dodging?
+	obs.append(clamp(dodge_cooldown / DODGE_COOLDOWN, 0.0, 1.0))  # 16: My dodge cooldown
+	obs.append(1.0 if enemy.is_dodging else 0.0)  # 17: Is enemy dodging?
+	obs.append(1.0 if is_dodge_recovering else 0.0)  # 18: Am I in recovery? (vulnerable)
 
 	return obs
 
@@ -593,6 +682,14 @@ func reset() -> void:
 	swing_timer = 0.0
 	swing_cooldown = 0.0
 	swing_direction = 0
+	# Reset dodge state
+	input_dodge = 0
+	is_dodging = false
+	dodge_timer = 0.0
+	dodge_cooldown = 0.0
+	dodge_direction = 0
+	is_dodge_recovering = false
+	dodge_recovery_timer = 0.0
 	# Reset visual state
 	target_scale = base_scale
 	if mesh_instance:

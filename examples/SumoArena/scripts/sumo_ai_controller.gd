@@ -20,7 +20,7 @@ func _ready() -> void:
 
 func get_obs() -> Dictionary:
 	if sumo_agent == null:
-		return {"obs": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
+		return {"obs": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
 	return {"obs": sumo_agent.get_obs()}
 
 
@@ -34,9 +34,11 @@ func get_action_space() -> Dictionary:
 	return {
 		"move": {"size": 1, "action_type": "continuous"},
 		"turn": {"size": 1, "action_type": "continuous"},
-		"charge": {"size": 2, "action_type": "discrete"},      # 0=no, 1=charge
-		"swing_left": {"size": 2, "action_type": "discrete"},  # 0=no, 1=swing left
-		"swing_right": {"size": 2, "action_type": "discrete"}, # 0=no, 1=swing right
+		"charge": {"size": 2, "action_type": "discrete"},       # 0=no, 1=charge
+		"swing_left": {"size": 2, "action_type": "discrete"},   # 0=no, 1=swing left
+		"swing_right": {"size": 2, "action_type": "discrete"},  # 0=no, 1=swing right
+		"dodge_left": {"size": 2, "action_type": "discrete"},   # 0=no, 1=dodge left
+		"dodge_right": {"size": 2, "action_type": "discrete"},  # 0=no, 1=dodge right
 	}
 
 
@@ -55,15 +57,25 @@ func set_action(action) -> void:
 		sumo_agent.input_swing = 1
 	else:
 		sumo_agent.input_swing = 0
+	# Dodge: two binary actions -> -1 (left), 0 (none), 1 (right)
+	# If both pressed, left takes priority
+	if action["dodge_left"] == 1:
+		sumo_agent.input_dodge = -1
+	elif action["dodge_right"] == 1:
+		sumo_agent.input_dodge = 1
+	else:
+		sumo_agent.input_dodge = 0
 
 
 func get_action() -> Array:
 	# Used for recording expert demos - return current human input
 	if sumo_agent == null:
-		return [0.0, 0.0, 0, 0, 0]
+		return [0.0, 0.0, 0, 0, 0, 0, 0]
 	var swing_left = 1 if sumo_agent.input_swing == -1 else 0
 	var swing_right = 1 if sumo_agent.input_swing == 1 else 0
-	return [sumo_agent.input_move, sumo_agent.input_turn, 1 if sumo_agent.input_charge else 0, swing_left, swing_right]
+	var dodge_left = 1 if sumo_agent.input_dodge == -1 else 0
+	var dodge_right = 1 if sumo_agent.input_dodge == 1 else 0
+	return [sumo_agent.input_move, sumo_agent.input_turn, 1 if sumo_agent.input_charge else 0, swing_left, swing_right, dodge_left, dodge_right]
 
 
 func reset() -> void:
