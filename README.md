@@ -1,4 +1,9 @@
 # Godot RL Agents Examples
+
+
+See the [SumoArena](examples/SumoArena) example for a more complex example of a Sumo Arena environment. This is my specific work for this project. 
+
+
 Example Environments for the [Godot RL Agents library](https://github.com/edbeeching/godot_rl_agents).
 
 ### Requirements:
